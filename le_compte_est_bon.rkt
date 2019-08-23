@@ -50,15 +50,75 @@
 
 (listof-n/e (fin/e + - *) 5)
 
-(define (compute-result nbs ops)
+(define (list-compute-result nbs ops)
   (if (null? ops)
       (car nbs)
       ((car ops) (car nbs) (compute-result (cdr nbs) (cdr ops)))))
+
+; (2 3 7 8 9 10) = (2 . (3 . (7 . (8 . (9 . (10 . '()))))))
+; (+ . ( () . (+ . ( () . (+ . ( () . (+ . ( () .  (+ ()))))))))) = '(+ () + () + () + () + ())
+;
+; (10) = (10 . ())
+; ()
+;
+; (9 10) = (9 . (10 . ()))
+; (+ . ( () . ())) = (+ ())
+(define (compute-result nbs ops)
+  (cond ((number? nbs) nbs)
+        ((null? (cdr nbs)) (car nbs))
+        (#t ((car ops) (compute-result (car nbs) (cadr ops)) (compute-result (cdr nbs) (cddr ops))))))
 
 (define nbss (permutations nbs))
 (define opss (apply cartesian-product (make-list 5 (list + - *))))
 ;> (length A)
 ;174960
 (define A (cartesian-product nbss opss))
-(define V (make-vector (+ 1 (compute-result nbs (make-list 5 *)))))
+;(define V (make-vector (+ 1 (compute-result nbs (make-list 5 *)))))
 (define sub-A-10000 (take A 10000))
+
+(define (trees2  l2)
+  (list (cons (car l2) (cadr l2)) (cons (cadr l2) (car l2))))
+
+(define (tree2-1 l2)
+  (cons (car l2) (cadr l2)))
+
+; build all trees keeping content in order
+;> (trees3-1 '(1 2 3))
+;'((1 2 . 3) ((1 . 2) . 3))
+(define (trees3-1 l3)
+  (list (cons (car l3) (tree2-1 (cdr l3))) (cons (tree2-1 (take l3 2)) (caddr l3))))
+
+;> (trees3 '( 1 2 3))
+;'((1 2 . 3)
+;  ((1 . 2) . 3)
+;  (2 1 . 3)
+;  ((2 . 1) . 3)
+;  (1 3 . 2)
+;  ((1 . 3) . 2)
+;  (3 1 . 2)
+;  ((3 . 1) . 2)
+;  (2 3 . 1)
+;  ((2 . 3) . 1)
+;  (3 2 . 1)
+;  ((3 . 2) . 1))
+(define (trees3 l3)
+  (apply append (map trees3-1 (permutations l3))))
+
+
+;> (trees-n-1 '(1 2 3))
+;'((1 2 . 3) ((1 . 2) . 3))
+;> (trees-n-1 '(1 2 3 4))
+;'((1 2 3 . 4) (1 (2 . 3) . 4) ((1 . 2) 3 . 4) ((1 2 . 3) . 4) (((1 . 2) . 3) . 4))
+(define (trees-n-1 l)
+  (cond ((equal? (length l) 2) (list(tree2-1 l)))
+        ((equal? (length l) 1) l)
+        (#t
+         (apply append
+           (map
+            (lambda (i)
+              (map (lambda (_) (apply cons _))
+                   (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (drop l i)))))
+            (range 1 (length l)))))))
+
+(define (trees l)
+  (apply append (map trees-n-1 (permutations l))))
