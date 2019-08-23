@@ -1,19 +1,13 @@
 #lang racket
 
-
 (define-syntax-rule (let1 a b body ...)
   (let ((a b)) body ...))
 
+(require data/enumerate/lib)
 (require rackunit)
 
 (define nbs '(2 3 7 8 9 10))
 (define ops '(+ - * /))
-
-; 
-(define (f l r res)
-  (if (null? r)
-      res
-      (f (cons (car r) l) (cdr r) (cons (list l r) res))))
 
 ; make an accumulator for fonction h
 ; 2 -> '((2) (2 ()))
@@ -49,3 +43,22 @@
        (list (list 10 (car _))
              (cadr _)))
      (h (cadar lceb)))
+
+(length (permutations nbs))
+
+(fin/e + - *)
+
+(listof-n/e (fin/e + - *) 5)
+
+(define (compute-result nbs ops)
+  (if (null? ops)
+      (car nbs)
+      ((car ops) (car nbs) (compute-result (cdr nbs) (cdr ops)))))
+
+(define nbss (permutations nbs))
+(define opss (apply cartesian-product (make-list 5 (list + - *))))
+;> (length A)
+;174960
+(define A (cartesian-product nbss opss))
+(define V (make-vector (+ 1 (compute-result nbs (make-list 5 *)))))
+(define sub-A-10000 (take A 10000))
