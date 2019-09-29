@@ -109,6 +109,7 @@
 ;'((1 2 . 3) ((1 . 2) . 3))
 ;> (trees-n-1 '(1 2 3 4))
 ;'((1 2 3 . 4) (1 (2 . 3) . 4) ((1 . 2) 3 . 4) ((1 2 . 3) . 4) (((1 . 2) . 3) . 4))
+; all trees for 1 permutation of a list of n elements
 (define (trees-n-1 l)
   (cond ((equal? (length l) 2) (list(tree2-1 l)))
         ((equal? (length l) 1) l)
@@ -120,5 +121,33 @@
                    (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (drop l i)))))
             (range 1 (length l)))))))
 
+
+(check-equal?
+ (trees-n-1 '(1 2 3))
+ '((1 2 . 3) ((1 . 2) . 3))
+ "trees-n-1 3")
+
+(check-equal?
+ (trees-n-1 '(1 2 3 4))
+ '((1 2 3 . 4) (1 (2 . 3) . 4) ((1 . 2) 3 . 4) ((1 2 . 3) . 4) (((1 . 2) . 3) . 4))
+ "trees-n-1 4")
+
+
 (define (trees l)
   (apply append (map trees-n-1 (permutations l))))
+
+(check-equal?
+ (trees '(1 2 3))
+ '((1 2 . 3)
+  ((1 . 2) . 3)
+  (2 1 . 3)
+  ((2 . 1) . 3)
+  (1 3 . 2)
+  ((1 . 3) . 2)
+  (3 1 . 2)
+  ((3 . 1) . 2)
+  (2 3 . 1)
+  ((2 . 3) . 1)
+  (3 2 . 1)
+  ((3 . 2) . 1))
+ "tree 1 2 3")
