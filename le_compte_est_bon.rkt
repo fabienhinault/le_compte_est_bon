@@ -83,32 +83,6 @@
   (cons (car l2) (cadr l2)))
 
 ; build all trees keeping content in order
-;> (trees3-1 '(1 2 3))
-;'((1 2 . 3) ((1 . 2) . 3))
-(define (trees3-1 l3)
-  (list (cons (car l3) (tree2-1 (cdr l3))) (cons (tree2-1 (take l3 2)) (caddr l3))))
-
-;> (trees3 '( 1 2 3))
-;'((1 2 . 3)
-;  ((1 . 2) . 3)
-;  (2 1 . 3)
-;  ((2 . 1) . 3)
-;  (1 3 . 2)
-;  ((1 . 3) . 2)
-;  (3 1 . 2)
-;  ((3 . 1) . 2)
-;  (2 3 . 1)
-;  ((2 . 3) . 1)
-;  (3 2 . 1)
-;  ((3 . 2) . 1))
-(define (trees3 l3)
-  (apply append (map trees3-1 (permutations l3))))
-
-
-;> (trees-n-1 '(1 2 3))
-;'((1 2 . 3) ((1 . 2) . 3))
-;> (trees-n-1 '(1 2 3 4))
-;'((1 2 3 . 4) (1 (2 . 3) . 4) ((1 . 2) 3 . 4) ((1 2 . 3) . 4) (((1 . 2) . 3) . 4))
 ; all trees for 1 permutation of a list of n elements
 (define (trees-n-1 l)
   (cond ((equal? (length l) 2) (list(tree2-1 l)))
@@ -118,7 +92,7 @@
            (map
             (lambda (i)
               (map (lambda (_) (apply cons _))
-                   (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (drop l i)))))
+                   (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (list-tail l i)))))
             (range 1 (length l)))))))
 
 
