@@ -54,28 +54,35 @@
 (define (list-compute-result nbs ops)
   (if (null? ops)
       (car nbs)
-      ((car ops) (car nbs) (compute-result (cdr nbs) (cdr ops)))))
+      ((car ops) (car nbs) (list-compute-result (cdr nbs) (cdr ops)))))
 
-; (2 3 7 8 9 10) = (2 . (3 . (7 . (8 . (9 . (10 . '()))))))
-; (+ . ( () . (+ . ( () . (+ . ( () . (+ . ( () .  (+ ()))))))))) = '(+ () + () + () + () + ())
-;
-; (10) = (10 . ())
-; ()
-;
-; (9 10) = (9 . (10 . ()))
-; (+ . ( () . ())) = (+ ())
-(define (compute-result nbs ops)
-  (cond ((number? nbs) nbs)
-        ((null? (cdr nbs)) (car nbs))
-        (#t ((car ops) (compute-result (car nbs) (cadr ops)) (compute-result (cdr nbs) (cddr ops))))))
+(check-equal?
+ (list-compute-result '(1) '())
+ 1
+ "list-compute-result 1")
+
+
+(check-equal?
+ (list-compute-result '(1 2) (list +))
+ 3
+ "list-compute-result 2")
+
 
 (define nbss (permutations nbs))
 (define opss (apply cartesian-product (make-list 5 (list + - *))))
 ;> (length A)
 ;174960
 (define A (cartesian-product nbss opss))
-;(define V (make-vector (+ 1 (compute-result nbs (make-list 5 *)))))
+(define V (make-vector (+ 1 (list-compute-result nbs (make-list 5 *)))))
+(define sub-A-10 (take A 10))
 (define sub-A-10000 (take A 10000))
+
+(map (lambda (_)
+         (let1 res (apply list-compute-result _)
+               (when (< 0 res)
+                 (vector-set! V res _))))
+       sub-A-10)
+
 
 ; build all trees keeping content in order
 ; all trees for 1 permutation of a list of n elements
@@ -133,7 +140,7 @@
   ((3 . 2) . 1))
  "tree 1 2 3")
 
-; build a monotone op-tree inserting the same operator op at each non-leaf node of the initial number-only tree.
+; build a one-op op-tree inserting the same operator op at each non-leaf node of the initial number-only tree.
 ; a real op-tree has different operators at its nodes.
 (define (op-tree op tree)
   (if (not (pair? tree))
@@ -144,7 +151,30 @@
  (op-tree + '(1 2 3 . 4))
  (list* + 1 + 2 + '(3 . 4)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
  "op-tree")
- 
+
+(define (ops-tree ops tree)
+  (if (not (pair? tree))
+      (cons tree ops)
+      (let* ((right-op-tree-remaining-ops (op-tree (cdr ops) (car tree)))
+             (right-op-tree (car right-op-tree-remaining-ops))
+             (right-remaining-ops (cdr right-op-tree-remaining-ops))
+             (left-op-tree-remaining-ops (op-tree right-remaining-ops (cdr tree)))
+             (left-op-tree (car left-op-tree-remaining-ops))
+             (remaining-ops (cdr left-op-tree-remaining-ops))
+             (op-tree (cons (car ops) (cons right-op-tree left-op-tree))))
+        (cons op-tree remaining-ops))))
+
+
+(check-equal?
+ (car (ops-tree '() 1))
+ 1 
+ "ops-tree 1")
+
+;(check-equal?
+; (ops-tree (list + - *) '(1 2 4 . 3))
+; (list* + 1 * 2 - '(4 . 3)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
+; "ops-tree")
+
 ; compute the result of a op-tree ot
 (define (compute-op-tree ot)
   (if (not (pair? ot))
