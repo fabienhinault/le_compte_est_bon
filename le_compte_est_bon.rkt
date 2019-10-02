@@ -60,13 +60,45 @@
  (list-compute-result '(1) '())
  1
  "list-compute-result 1")
-
-
 (check-equal?
  (list-compute-result '(1 2) (list +))
  3
  "list-compute-result 2")
 
+(define (strict-quotient n m)
+  (if (not (equal? (remainder n m) 0))
+      (raise 'arithmetic)
+      (quotient n m)))
+
+(define (strict-minus n m)
+  (if (< n m)
+      (raise 'arithmetic)
+      (- n m)))
+
+(define (op->string op)
+  ; not using case, because quoted clause
+  (cond
+    ((equal? op +) "+")
+    ((equal? op strict-minus) "-")
+    ((equal? op -) "-")
+    ((equal? op *) "*")
+    ((equal? op strict-quotient) "/")
+    [#t (~a op)]))
+
+(check-equal?
+ (op->string +)
+ "+"
+ "op->string")
+
+(define (op-list->string nbs ops)
+    (if (null? ops)
+        (number->string (car nbs))
+        (string-append "(" (number->string (car nbs)) " " (op->string (car ops)) " " (op-list->string (cdr nbs) (cdr ops)) ")")))
+
+(check-equal?
+ (op-list->string '(1 2 3 4) (list + - *))
+ "(1 + (2 - (3 * 4)))"
+ "op-list->string")
 
 (define nbss (permutations nbs))
 (define opss (apply cartesian-product (make-list 5 (list + - *))))
@@ -80,7 +112,7 @@
 (map (lambda (_)
          (let1 res (apply list-compute-result _)
                (when (< 0 res)
-                 (vector-set! V res _))))
+                 (vector-set! V res (op-list->string (car _) (cadr _))))))
        sub-A-10)
 
 
@@ -186,30 +218,6 @@
  10
  compute-op-tree)
 
-(define (strict-quotient n m)
-  (if (not (equal? (remainder n m) 0))
-      (raise 'arithmetic)
-      (quotient n m)))
-
-(define (strict-minus n m)
-  (if (< n m)
-      (raise 'arithmetic)
-      (- n m)))
-
-(define (op->string op)
-  ; not using case, because quoted clause
-  (cond
-    ((equal? op +) "+")
-    ((equal? op strict-minus) "-")
-    ((equal? op *) "*")
-    ((equal? op strict-quotient) "/")
-    [#t (~a op)]))
-
-(check-equal?
- (op->string +)
- "+"
- "op->string")
-
 (define (op-tree->string ot)
   (if (not (pair? ot))
       (number->string ot)
@@ -219,3 +227,4 @@
  (op-tree->string(op-tree + '(1 2 3 . 4)))
  "(1 + (2 + (3 + 4)))"
  "op-tree->string")
+
