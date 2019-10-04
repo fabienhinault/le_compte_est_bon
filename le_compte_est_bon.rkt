@@ -52,14 +52,14 @@
 (listof-n/e (fin/e + - *) 5)
 
 (define (handled-list-compute-result nbs ops)
-  (with-handlers ([exn:fail:contract:divide-by-zero? (lambda (e) '())])
+  (with-handlers ([exn:fail:contract:divide-by-zero? void])
     (list-compute-result nbs ops)))
 
 ;exn:fail:contract:divide-by-zero
 (define (list-compute-result nbs ops)
-    (if (null? ops)
-        (car nbs)
-        ((car ops) (car nbs) (list-compute-result (cdr nbs) (cdr ops)))))
+  (if (null? ops)
+      (car nbs)
+      ((car ops) (car nbs) (list-compute-result (cdr nbs) (cdr ops)))))
 
 (check-equal?
  (list-compute-result '(1) '())
@@ -108,17 +108,23 @@
 (define nbss (permutations nbs))
 (define opss (apply cartesian-product (make-list 5 (list + - * /))))
 ;> (length A)
-;174960
+;737280
 (define A (cartesian-product nbss opss))
 (define V (make-vector (+ 1 (list-compute-result nbs (make-list 5 *)))))
 (define sub-A-10 (take A 10))
 (define sub-A-10000 (take A 10000))
 
-(map (lambda (_)
-         (let1 res (apply list-compute-result _)
+(define (V-set! n)
+  (map (lambda (_)
+         (let1 res (apply handled-list-compute-result _)
                (when (exact-nonnegative-integer? res)
                  (vector-set! V res (op-list->string (car _) (cadr _))))))
-       sub-A-10)
+       (take A n))
+  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
+
+;> (time (V-set! 500000))
+;cpu time: 48551 real time: 48488 gc time: 8662
+;50
 
 
 ; build all trees keeping content in order
