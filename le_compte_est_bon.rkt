@@ -52,7 +52,8 @@
 (listof-n/e (fin/e + - *) 5)
 
 (define (handled-list-compute-result nbs ops)
-  (with-handlers ([exn:fail:contract:divide-by-zero? void])
+  (with-handlers ([exn:fail:contract:divide-by-zero? void]
+                  [(lambda (e) (equal? e 'arithmetic)) void])
     (list-compute-result nbs ops)))
 
 ;exn:fail:contract:divide-by-zero
@@ -106,7 +107,7 @@
  "op-list->string")
 
 (define nbss (permutations nbs))
-(define opss (apply cartesian-product (make-list 5 (list + - * /))))
+(define opss (apply cartesian-product (make-list 5 (list + strict-minus * strict-quotient))))
 ;> (length A)
 ;737280
 (define A (cartesian-product nbss opss))
@@ -114,18 +115,28 @@
 (define sub-A-10 (take A 10))
 (define sub-A-10000 (take A 10000))
 
+(define (V-set-line! A-line)
+  (let1 res (apply handled-list-compute-result A-line)
+        (when (exact-nonnegative-integer? res)
+          (vector-set! V res (op-list->string (car A-line) (cadr A-line))))))
+
 (define (V-set! n)
-  (map (lambda (_)
-         (let1 res (apply handled-list-compute-result _)
-               (when (exact-nonnegative-integer? res)
-                 (vector-set! V res (op-list->string (car _) (cadr _))))))
+  (map V-set-line!
        (take A n))
   (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
 
-;> (time (V-set! 500000))
-;cpu time: 48551 real time: 48488 gc time: 8662
-;50
 
+(define (V-set-all!)
+  (map V-set-line! A)
+  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
+
+;> (time (V-set! 500000))
+;cpu time: 18709 real time: 18685 gc time: 4406
+;211
+
+;> (time (V-set-all!))
+;cpu time: 53747 real time: 53684 gc time: 11456
+;132
 
 ; build all trees keeping content in order
 ; all trees for 1 permutation of a list of n elements
