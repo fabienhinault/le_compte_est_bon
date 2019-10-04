@@ -51,10 +51,15 @@
 
 (listof-n/e (fin/e + - *) 5)
 
+(define (handled-list-compute-result nbs ops)
+  (with-handlers ([exn:fail:contract:divide-by-zero? (lambda (e) '())])
+    (list-compute-result nbs ops)))
+
+;exn:fail:contract:divide-by-zero
 (define (list-compute-result nbs ops)
-  (if (null? ops)
-      (car nbs)
-      ((car ops) (car nbs) (list-compute-result (cdr nbs) (cdr ops)))))
+    (if (null? ops)
+        (car nbs)
+        ((car ops) (car nbs) (list-compute-result (cdr nbs) (cdr ops)))))
 
 (check-equal?
  (list-compute-result '(1) '())
@@ -101,7 +106,7 @@
  "op-list->string")
 
 (define nbss (permutations nbs))
-(define opss (apply cartesian-product (make-list 5 (list + - *))))
+(define opss (apply cartesian-product (make-list 5 (list + - * /))))
 ;> (length A)
 ;174960
 (define A (cartesian-product nbss opss))
@@ -111,7 +116,7 @@
 
 (map (lambda (_)
          (let1 res (apply list-compute-result _)
-               (when (< 0 res)
+               (when (exact-nonnegative-integer? res)
                  (vector-set! V res (op-list->string (car _) (cadr _))))))
        sub-A-10)
 
