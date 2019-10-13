@@ -76,7 +76,18 @@
       (raise 'arithmetic)
       (quotient n m)))
 
+(define (inverted-quotient m n)
+  (if (not (equal? (remainder n m) 0))
+      (raise 'arithmetic)
+      (quotient n m)))
+
 (define (strict-minus n m)
+  (if (< n m)
+      (raise 'arithmetic)
+      (- n m)))
+
+
+(define (inverted-minus m n)
   (if (< n m)
       (raise 'arithmetic)
       (- n m)))
@@ -86,9 +97,11 @@
   (cond
     ((equal? op +) "+")
     ((equal? op strict-minus) "-")
+    ((equal? op inverted-minus) "\\-")
     ((equal? op -) "-")
     ((equal? op *) "*")
     ((equal? op strict-quotient) "/")
+    ((equal? op inverted-quotient) "\\")
     [#t (~a op)]))
 
 (check-equal?
@@ -107,27 +120,34 @@
  "op-list->string")
 
 (define nbss (permutations nbs))
-(define opss (apply cartesian-product (make-list 5 (list + strict-minus * strict-quotient))))
-;> (length A)
-;737280
-(define A (cartesian-product nbss opss))
-(define V (make-vector (+ 1 (list-compute-result nbs (make-list 5 *)))))
-(define sub-A-10 (take A 10))
-(define sub-A-10000 (take A 10000))
+; all combinations of 5 operators in the list
+(define opss-strict (apply cartesian-product (make-list 5 (list + strict-minus * strict-quotient inverted-minus inverted-quotient))))
+(define opss-loose (apply cartesian-product (make-list 5 (list + - * /))))
+;> (length A-strict)
+;5_598_720
+(define A-strict (cartesian-product nbss opss-strict))
+(define A-loose (cartesian-product nbss opss-loose))
+;(define size (+ 1 (list-compute-result nbs (make-list 5 *))))
+(define V-list-strict (make-vector 1000))
+(define V-list-loose (make-vector 1000))
+(define sub-A-10-strict (take A-strict 10))
+(define sub-A-10000-strict (take A-strict 10000))
+(define sub-A-10-loose (take A-loose 10))
+(define sub-A-10000-loose (take A-loose 10000))
 
-(define (V-set-line! A-line)
-  (let1 res (apply handled-list-compute-result A-line)
-        (when (exact-nonnegative-integer? res)
-          (vector-set! V res (op-list->string (car A-line) (cadr A-line))))))
+(define (V-set-line! A-line V)
+  (let* ((nbs (car A-line))
+         (ops (cadr A-line))
+         (res (handled-list-compute-result nbs ops)))
+    (when (and (exact-nonnegative-integer? res) (< res 1000))
+      (vector-set! V res (op-list->string nbs ops)))))
 
-(define (V-set! n)
-  (map V-set-line!
-       (take A n))
+(define (V-set! n V A)
+  (map (lambda (_) (V-set-line! _ V)) (take A n))
   (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
 
-
-(define (V-set-all!)
-  (map V-set-line! A)
+(define (V-set-all! V A)
+  (map (lambda (_) (V-set-line! _ V)) A)
   (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
 
 ;> (time (V-set! 500000))
@@ -206,28 +226,36 @@
  (list* + 1 + 2 + '(3 . 4)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
  "op-tree")
 
+; build an op-tree out of
+; param ops operator list
+; param tree a binary tree of number
+; return a cons of the op-tree and remaining ops, not used in the op-tree
 (define (ops-tree ops tree)
   (if (not (pair? tree))
       (cons tree ops)
-      (let* ((right-op-tree-remaining-ops (op-tree (cdr ops) (car tree)))
+      (let* ((right-op-tree-remaining-ops (ops-tree (cdr ops) (car tree)))
              (right-op-tree (car right-op-tree-remaining-ops))
              (right-remaining-ops (cdr right-op-tree-remaining-ops))
-             (left-op-tree-remaining-ops (op-tree right-remaining-ops (cdr tree)))
+             (left-op-tree-remaining-ops (ops-tree right-remaining-ops (cdr tree)))
              (left-op-tree (car left-op-tree-remaining-ops))
              (remaining-ops (cdr left-op-tree-remaining-ops))
-             (op-tree (cons (car ops) (cons right-op-tree left-op-tree))))
-        (cons op-tree remaining-ops))))
-
+             (ot (cons (car ops) (cons right-op-tree left-op-tree))))
+        (cons ot remaining-ops))))
 
 (check-equal?
- (car (ops-tree '() 1))
- 1 
+ (ops-tree '() 1)
+ '(1) 
  "ops-tree 1")
 
-;(check-equal?
-; (ops-tree (list + - *) '(1 2 4 . 3))
-; (list* + 1 * 2 - '(4 . 3)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
-; "ops-tree")
+(check-equal?
+ (car (ops-tree (list +) '(1 . 2)))
+ (list* + '(1 . 2))
+ "ops-tree 2")
+
+(check-equal?
+ (car (ops-tree (list + * -) '(1 2 4 . 3)))
+ (list* + 1 * 2 - '(4 . 3)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
+ "ops-tree")
 
 ; compute the result of a op-tree ot
 (define (compute-op-tree ot)
