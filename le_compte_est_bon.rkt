@@ -45,12 +45,6 @@
              (cadr _)))
      (h (cadar lceb)))
 
-(length (permutations nbs))
-
-(fin/e + - *)
-
-(listof-n/e (fin/e + - *) 5)
-
 (define (handled-list-compute-result nbs ops)
   (with-handlers ([exn:fail:contract:divide-by-zero? void]
                   [(lambda (e) (equal? e 'arithmetic)) void])
@@ -104,7 +98,8 @@
  "+"
  "op->string")
 
-(define strict-ops (list + strict-minus * strict-quotient inverted-minus inverted-quotient))
+;(define strict-ops (list + strict-minus * strict-quotient inverted-minus inverted-quotient))
+(define strict-ops (list + strict-minus * strict-quotient))
 
 (define (op-list->string nbs ops)
   (if (null? ops)
@@ -219,6 +214,11 @@
       (cons op (cons (op-tree op (car tree)) (op-tree op (cdr tree))))))
 
 (check-equal?
+ (op-tree + 1)
+ 1 ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
+ "op-tree")
+
+(check-equal?
  (op-tree + '(1 2 3 . 4))
  (list* + 1 + 2 + '(3 . 4)) ;'(#<procedure:+> 1 #<procedure:+> 2 #<procedure:+> 3 . 4)
  "op-tree")
@@ -240,8 +240,8 @@
         (cons ot remaining-ops))))
 
 (check-equal?
- (ops-tree '() 1)
- '(1) 
+ (car (ops-tree '() 1))
+ 1 
  "ops-tree 1")
 
 (check-equal?
@@ -265,22 +265,63 @@
  10
  compute-op-tree)
 
+(define (handled-compute-op-tree ot)
+  (with-handlers ([exn:fail:contract:divide-by-zero? void]
+                  [(lambda (e) (equal? e 'arithmetic)) void])
+    (compute-op-tree ot)))
+
 (define (op-tree->string ot)
-  (if (not (pair? ot))
-      (number->string ot)
-      (string-append "(" (op-tree->string (cadr ot)) " " (op->string (car ot)) " " (op-tree->string (cddr ot)) ")")))
+  (cond ((not (pair? ot))
+         (number->string ot))
+        ((null? (cdr ot)) (car ot)) 
+        (#t (string-append "("
+                           (op-tree->string (cadr ot))
+                           " "
+                           (op->string (car ot))
+                           " "
+                           (op-tree->string (cddr ot))
+                           ")"))))
+
+(check-equal?
+ (op-tree->string (op-tree + 1))
+ "1"
+ "op-tree->string")
+
+(check-equal?
+ (op-tree->string (op-tree + '(3 . 4)))
+ "(3 + 4)"
+ "op-tree->string")
 
 (check-equal?
  (op-tree->string(op-tree + '(1 2 3 . 4)))
  "(1 + (2 + (3 + 4)))"
  "op-tree->string")
 
+(define nbss (let1 sets (set/e (apply fin/e nbs))
+                   (slice/e sets 1 (enum-count sets))))
+(define (ops/e n)
+  (listof-n/e (apply fin/e strict-ops) n))
+
 (define E
   (apply append/e
          (map (lambda (s)
-                (list/e (permutations/e (set->list s))
-                        (listof-n/e (apply fin/e strict-ops)
-                                    (- (set-count s) 1))))
-              (enum->list (let1 sets (set/e (apply fin/e nbs))
-                                (slice/e sets 1 (enum-count sets)))))))
+                (list/e (fin/e (set->list s))
+                        (ops/e (- (set-count s) 1))))
+              (enum->list nbss))))
 
+(for ([s-nbs (in-enum nbss)]
+        (i (range 10))
+        #:when #t
+        [t (trees (set->list s-nbs))]
+        #:when #t
+        [ops (in-enum (ops/e (- (set-count s-nbs) 1)))]
+        [j (range 10)])
+    ;(displayln i)
+    ;(displayln j)
+    ;(displayln s-nbs)
+    ;(displayln t)
+    ;(displayln ops)
+    (let1 ot (car (ops-tree ops t))
+          ;(displayln ot)
+          (displayln (op-tree->string ot))
+          (displayln (handled-compute-op-tree ot))))
