@@ -77,20 +77,15 @@
       (quotient n m)))
 
 (define (inverted-quotient m n)
-  (if (not (equal? (remainder n m) 0))
-      (raise 'arithmetic)
-      (quotient n m)))
+  (strict-quotient n m))
 
 (define (strict-minus n m)
   (if (< n m)
       (raise 'arithmetic)
       (- n m)))
 
-
 (define (inverted-minus m n)
-  (if (< n m)
-      (raise 'arithmetic)
-      (- n m)))
+  (strict-minus n m))
 
 (define (op->string op)
   ; not using case, because quoted clause
@@ -109,54 +104,56 @@
  "+"
  "op->string")
 
+(define strict-ops (list + strict-minus * strict-quotient inverted-minus inverted-quotient))
+
 (define (op-list->string nbs ops)
-    (if (null? ops)
-        (number->string (car nbs))
-        (string-append "(" (number->string (car nbs)) " " (op->string (car ops)) " " (op-list->string (cdr nbs) (cdr ops)) ")")))
+  (if (null? ops)
+      (number->string (car nbs))
+      (string-append "(" (number->string (car nbs)) " " (op->string (car ops)) " " (op-list->string (cdr nbs) (cdr ops)) ")")))
 
 (check-equal?
  (op-list->string '(1 2 3 4) (list + - *))
  "(1 + (2 - (3 * 4)))"
  "op-list->string")
-
-(define nbss (permutations nbs))
-; all combinations of 5 operators in the list
-(define opss-strict (apply cartesian-product (make-list 5 (list + strict-minus * strict-quotient inverted-minus inverted-quotient))))
-(define opss-loose (apply cartesian-product (make-list 5 (list + - * /))))
-;> (length A-strict)
-;5_598_720
-(define A-strict (cartesian-product nbss opss-strict))
-(define A-loose (cartesian-product nbss opss-loose))
-;(define size (+ 1 (list-compute-result nbs (make-list 5 *))))
-(define V-list-strict (make-vector 1000))
-(define V-list-loose (make-vector 1000))
-(define sub-A-10-strict (take A-strict 10))
-(define sub-A-10000-strict (take A-strict 10000))
-(define sub-A-10-loose (take A-loose 10))
-(define sub-A-10000-loose (take A-loose 10000))
-
-(define (V-set-line! A-line V)
-  (let* ((nbs (car A-line))
-         (ops (cadr A-line))
-         (res (handled-list-compute-result nbs ops)))
-    (when (and (exact-nonnegative-integer? res) (< res 1000))
-      (vector-set! V res (op-list->string nbs ops)))))
-
-(define (V-set! n V A)
-  (map (lambda (_) (V-set-line! _ V)) (take A n))
-  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
-
-(define (V-set-all! V A)
-  (map (lambda (_) (V-set-line! _ V)) A)
-  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
-
-;> (time (V-set! 500000))
-;cpu time: 18709 real time: 18685 gc time: 4406
-;211
-
-;> (time (V-set-all!))
-;cpu time: 53747 real time: 53684 gc time: 11456
-;132
+;
+;(define nbss (permutations nbs))
+;; all combinations of 5 operators in the list
+;(define opss-strict (apply cartesian-product (make-list 5 (list + strict-minus * strict-quotient inverted-minus inverted-quotient))))
+;(define opss-loose (apply cartesian-product (make-list 5 (list + - * /))))
+;;> (length A-strict)
+;;5_598_720
+;(define A-strict (cartesian-product nbss opss-strict))
+;(define A-loose (cartesian-product nbss opss-loose))
+;;(define size (+ 1 (list-compute-result nbs (make-list 5 *))))
+;(define V-list-strict (make-vector 1000))
+;(define V-list-loose (make-vector 1000))
+;(define sub-A-10-strict (take A-strict 10))
+;(define sub-A-10000-strict (take A-strict 10000))
+;(define sub-A-10-loose (take A-loose 10))
+;(define sub-A-10000-loose (take A-loose 10000))
+;
+;(define (V-set-line! A-line V)
+;  (let* ((nbs (car A-line))
+;         (ops (cadr A-line))
+;         (res (handled-list-compute-result nbs ops)))
+;    (when (and (exact-nonnegative-integer? res) (< res 1000))
+;      (vector-set! V res (op-list->string nbs ops)))))
+;
+;(define (V-set! n V A)
+;  (map (lambda (_) (V-set-line! _ V)) (take A n))
+;  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
+;
+;(define (V-set-all! V A)
+;  (map (lambda (_) (V-set-line! _ V)) A)
+;  (vector-count (lambda (_) (equal? _ 0)) (vector-take V 1000)))
+;
+;;> (time (V-set! 500000))
+;;cpu time: 18709 real time: 18685 gc time: 4406
+;;211
+;
+;;> (time (V-set-all!))
+;;cpu time: 53747 real time: 53684 gc time: 11456
+;;132
 
 ; build all trees keeping content in order
 ; all trees for 1 permutation of a list of n elements
@@ -164,14 +161,14 @@
   (cond ((equal? (length l) 1) l)
         (#t
          (apply append
-           (map
-            (lambda (i)
-              ; cartesian-product returns the list of all 2-lists containing a tree of
-              ; i first elements and a tree of all but i last elements. We cons the 2
-              ; elements of each 2-list.
-              (map (lambda (_) (apply cons _))
-                   (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (list-tail l i)))))
-            (range 1 (length l)))))))
+                (map
+                 (lambda (i)
+                   ; cartesian-product returns the list of all 2-lists containing a tree of
+                   ; i first elements and a tree of all but i last elements. We cons the 2
+                   ; elements of each 2-list.
+                   (map (lambda (_) (apply cons _))
+                        (cartesian-product (trees-n-1 (take l i)) (trees-n-1 (list-tail l i)))))
+                 (range 1 (length l)))))))
 
 (check-equal?
  (trees-n-1 '(1))
@@ -201,17 +198,17 @@
 (check-equal?
  (trees '(1 2 3))
  '((1 2 . 3)
-  ((1 . 2) . 3)
-  (2 1 . 3)
-  ((2 . 1) . 3)
-  (1 3 . 2)
-  ((1 . 3) . 2)
-  (3 1 . 2)
-  ((3 . 1) . 2)
-  (2 3 . 1)
-  ((2 . 3) . 1)
-  (3 2 . 1)
-  ((3 . 2) . 1))
+   ((1 . 2) . 3)
+   (2 1 . 3)
+   ((2 . 1) . 3)
+   (1 3 . 2)
+   ((1 . 3) . 2)
+   (3 1 . 2)
+   ((3 . 1) . 2)
+   (2 3 . 1)
+   ((2 . 3) . 1)
+   (3 2 . 1)
+   ((3 . 2) . 1))
  "tree 1 2 3")
 
 ; build a one-op op-tree inserting the same operator op at each non-leaf node of the initial number-only tree.
@@ -277,4 +274,13 @@
  (op-tree->string(op-tree + '(1 2 3 . 4)))
  "(1 + (2 + (3 + 4)))"
  "op-tree->string")
+
+(define E
+  (apply append/e
+         (map (lambda (s)
+                (list/e (permutations/e (set->list s))
+                        (listof-n/e (apply fin/e strict-ops)
+                                    (- (set-count s) 1))))
+              (enum->list (let1 sets (set/e (apply fin/e nbs))
+                                (slice/e sets 1 (enum-count sets)))))))
 
